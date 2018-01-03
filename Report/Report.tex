@@ -1,0 +1,60 @@
+% Tex adds a bunch of garbage files that I hate to look at. Add this to your bashrc to clean up before pushing:
+% alias rmtex='rm *.aux; rm *.log' 
+% cool.
+% I've added questions in ALL CAPS, not bc I'm angry, but because I want to remember to delete them before we turn this in.
+% replace variable names with typewriter font add pseudocode 
+
+\documentclass[]{scrartcl}
+\usepackage{graphicx}
+\usepackage{amssymb}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\pagestyle{empty}
+\date{}
+
+\setlength\parindent{24pt}
+\setlength{\parskip}{.1in}
+
+\title{Computing Sea Level Rise}
+\author{Jake Adicoff, Ethan Zhou \\ CSCI 3225: Algorithms for GIS}
+\begin{document}
+\maketitle
+\bigskip
+
+
+%end paragraphs with \par. indent with \indent. Must use \indent twice if it comes directly after a section header
+\section{Introduction} 
+\indent \indent Simply stated, the problem of sea level rise is to determine the land mass that is flooded when the sea level rises by a specified ammount. In this paper, we provide a time efficient algorithm and implementation details that allow fast computation to find flooded area when sea level is increased. The input for the problem is the GIS standard ASCII (.asc) file that encodes an elevation grid. The importance of sea level rise is far reaching - knowing flooded area allows us to determine land area that is at risk of flooding should the sea level rise due to climate change. Some research suggests that the sea level could rise as much as 6 feet as glaciers begin to melt more rapidly. Our algorithm allows us to visualize areas affected by this change. \par
+
+\section{Algorithm}
+\indent \indent We present a linear time algorithm to determine flooded area in a terrain for any specified range of values for sea level rise (SLR). Before proceding with the algorithm, we must discuss the data structures we use. First, we read in elevation data and store it in a static array. We will refer to this array as the {\em Elevation Grid} (\texttt{EG}). We maintain a dynamically updated array with the same dimensions as the \texttt{EG}. This second array stores the sea level at the corresponding cell in the \texttt{EG} is flooded. We initialize this grid to the \texttt{NODATA} value (generally -9999). We will refer to this array as the {\em Flood Level Grid} (\texttt{FLG}). We maintain 2 stack (FIFO) structures and we will refer to them as \texttt{current\_stack} and \texttt{next\_stack}. The stacks hold a class that we define. Our class is simple and holds values for row, column and elevation of the corresponding grid cell in the \texttt{EG}. We use this class to maintain locality when using the stack. Finally, we maintain a dynamically updated unordered set (essentially a hash tabel but instead of a key-value pair, there is only a key). This table hashes instances of our class and we will refer to it as the {\em Cell Hash} (CH). In section 3 we will discuss the reason for our use of this structure. \par
+\indent Our algorithm is a modification of a {\em Depth First Search} (DFS) through the \texttt{EG}. Instead of a recursive implementation, we choose a stack implementation. We begin the algorithm by determining points that we assume to be ocean. Water in an elevation grid is usually stored as the \texttt{NODATA} value (or sometimes 0), and we can make the assumption that if a land mass completely surrounds an area of water, it is not ocean. Thus ocean must be lie on the boarder of the elevation grid and will have elevation of \texttt{NODATA} or 0. We traverse the parimiter of our grid and push all points that boarder points that we determine are ocean onto \texttt{current\_stack}.\par
+\indent Afther this is complete, we begin the DFS. We itearate over values of SLR from 0 to a user specified constant max\_SLR. For each value (we call this value the \texttt{current\_SLR}), we begin with \texttt{current\_stack}. While \texttt{current\_stack} is not empty. We pop a cell instance off of the stack and update the corresponding cell in the \texttt{FLG} with the \texttt{current\_SLR}. We then look at all 8 neighbors of the cell in the \texttt{EG}. If the \texttt{current\_SLR} is greater than or eaqual to a neighbors elevation, or if the neighbor is \texttt{NODATA}, we push this neighbor onto the stack. Before doing this however, we check to see that it's corresponding cell in the \texttt{FLG} is not \texttt{NODATA} and that it has not already been pushed onto \texttt{current\_stack}. If the neighbor's elevation exceeds the \texttt{current\_SLR}, we push the cell onto \texttt{next\_stack} to be processed later. \par
+\indent after an itearation of this, \texttt{current\_stack} is empty, and \texttt{next\_stack} has Cell objects to be processed. We set \texttt{current\_stack} equal to \texttt{next\_stack} and then empty \texttt{next\_stack}. After this, \texttt{current\_SLR} is incremented, and the process is repeated. When \texttt{current\_SLR} = \texttt{max\_SLR}, the algorithm terminates, and we are left with a fully updated \texttt{FLG} that specifies the exact SLR at which a grid cell is flooded. If a cell of the \texttt{FLG} is \texttt{NODATA}, then it is not flooded by any SLR below \texttt{max\_SLR}.\par
+\indent Analisys is a bit complicated, but the algorithm runs in $O(n)$ time, where $n= $ the total number of cells (number of rows times number of columns in the \texttt{EG}). Every Cell has an initial push event (1 at most), where that cell iseither pushed onto \texttt{current\_stack}, or the element is pushed onto \texttt{next\_stack}. If the cell is pushed onto \texttt{current\_stack}, then it is immediately classified and we do not look at the point again. If a cell is pushed onto \texttt{next\_stack}, we do not look at its neighbors, so the cell acts as a barrier to more interior points of SHIT WAIT, I THINK OUR ALG IS O(n*\texttt{max\_SLR}). PLEASE CONFIRM.
+\section{Implementation}
+\indent \indent By necessity, we have explained most of the details of implementation in the previous section, but we will fill in some small gaps here. First, in our algorithm, we make checks to see that a grid cell is not already on \texttt{next\_stack}. The c++ data structure has no function to check for existance of an item in a stack, so in every iteration of our main loop (where we increment the value of \texttt{current\_SLR}), we make a unordered set of cells (as previously discussed). Before we add any cells to \texttt{next\_stack}, we hash them in this set, and then push. Before pushing neighobrs onto \texttt{next\_stack}, we check for that neighbor's existance in the hash, and if it exists, we do not push it onto the stack, and simply continue. I HAVE A BURNING QUESTION, WHY ISNT THERE A HASH FOR THE CURRENT STACK? \par
+\indent Other minor details, we bullet below:
+\begin{enumerate}
+  % certainly the worst way to bullet in tex, but I have no internet rn to look this one up....
+\item[$\cdot$] For ease of coding and integration with Open GL, we did not make a class, and instead use global variales (heavily). 
+\item[$\cdot$] To 'switch' \texttt{current\_stack} and \texttt{next\_stack}, we use pointers. \texttt{current\_stack} and \texttt{next\_stack} are actually stack pointers to stacks \texttt{a} and \texttt{b} respectively. When we need to switch current and next, if \texttt{current\_stack} points to \texttt{a} we set current equal the address of \texttt{b} and next to the address of $a$. We do the analagous but opposite if current points to \texttt{b}.
+\item[$\cdot$] We take \texttt{increment} as an argument. \texttt{ncrement} specifies how much the user would like to see the sea level rise (or decrease) when hitting '+' (or '-'). As a matter of convenience, the increment must evenly divide \texttt{max\_SLR}.
+\item[$\cdot$] We hve additional optional arguments for resolution. The variable \texttt{computation\_resolution} specifies which neighbors we look at. If resolution is set to 1, we look at neighbors distance 1 to a cell. If set to 5, we look at all 8 neighbors distance 5 from the cell (so 4 cells are skipped altogether by the algorithm and we get speedup). the variable \texttt{display\_resolution} specifies the resolution you would like for rendering with Open GL. Again, 1 is highest resolution, 5 would skip 4 cells while rendering. If a \texttt{computation\_resolution} is specified, \texttt{display\_resolution} will be set equal to it and will remain constant at runtime. If unspecified, both are set to 1.
+\end{enumerate}
+\indent We bullet key press details below (these apply for rendering only):
+\begin{enumerate}
+\item['+'] Increase the sea level
+\item['-'] decrease the sea level
+\item['x'] rotate about the $x$ axis
+\item['y'] rotate about the $y$ axis
+\item['z'] rotate about the $z$ axis
+\item['n'] increase \texttt{display\_resolution}
+\item['m'] decrease \texttt{display\_resolution}
+\end{enumerate}
+
+\section{Experiments}
+
+\section{Discussion and Conclusion}
+
+\end{document}
